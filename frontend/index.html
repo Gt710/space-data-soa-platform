@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>AstroMonitor OS - Space Data Platform</title>
+<title>Space Data Platform</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <link href="styles.css" rel="stylesheet"/>
 </head>
-<body class="min-h-screen flex overflow-hidden">
+<body class="min-h-screen flex overflow-x-hidden">
 
 <!-- Sidebar -->
 <nav class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-[#1b2027]/80 backdrop-blur-xl border-r border-[#414751]/10 py-8 z-40">
@@ -25,6 +25,30 @@
     <a id="nav-missions" onclick="navigate('missions')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-[#c1c7d3] cursor-pointer"><span class="material-symbols-outlined">database</span>Mission Data</a>
   </div>
   <div class="px-4 mt-auto space-y-2">
+    <!-- Auth -->
+    <div id="auth-section" class="mx-2 glass-card rounded-lg p-3">
+      <form onsubmit="loginUser(event)" class="space-y-2">
+        <input name="username" placeholder="Username" required class="w-full bg-[#171c23] border border-[#414751]/30 rounded px-3 py-1.5 text-sm text-[#dee2ec] outline-none"/>
+        <input name="password" type="password" placeholder="Password" required class="w-full bg-[#171c23] border border-[#414751]/30 rounded px-3 py-1.5 text-sm text-[#dee2ec] outline-none"/>
+        <button type="submit" class="w-full bg-[#a4c9ff] text-[#001c39] font-bold py-1.5 rounded text-sm">Login</button>
+      </form>
+      <p id="auth-error" class="text-[#ffb4ab] text-xs mt-1"></p>
+      <details class="mt-2"><summary class="text-[#c1c7d3] text-xs cursor-pointer">Register</summary>
+        <form onsubmit="registerUser(event)" class="space-y-2 mt-2">
+          <input name="reg_username" placeholder="Username" required class="w-full bg-[#171c23] border border-[#414751]/30 rounded px-3 py-1.5 text-sm text-[#dee2ec] outline-none"/>
+          <input name="reg_email" type="email" placeholder="Email" required class="w-full bg-[#171c23] border border-[#414751]/30 rounded px-3 py-1.5 text-sm text-[#dee2ec] outline-none"/>
+          <input name="reg_password" type="password" placeholder="Password" required class="w-full bg-[#171c23] border border-[#414751]/30 rounded px-3 py-1.5 text-sm text-[#dee2ec] outline-none"/>
+          <button type="submit" class="w-full bg-[#30353d] text-[#dee2ec] font-bold py-1.5 rounded text-sm">Register</button>
+        </form>
+        <p id="reg-msg" class="text-xs mt-1"></p>
+      </details>
+    </div>
+    <div id="user-section" style="display:none" class="mx-2 glass-card rounded-lg p-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-[#a4c9ff] text-lg">person</span><span id="user-name" class="data-font text-sm"></span></div>
+        <button onclick="logoutUser()" class="text-[#ffb4ab] text-xs hover:text-[#ff5449]">Logout</button>
+      </div>
+    </div>
     <div class="mx-2 px-4 py-3 glass-card rounded-lg flex items-center justify-between">
       <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-[#66dd8b] breathing-dot"></div><span class="data-font text-sm">System</span></div>
       <span class="label-caps text-[#66dd8b]">NOMINAL</span>
@@ -98,6 +122,7 @@
     <div class="lg:col-span-8 glass-card rounded-xl overflow-hidden">
       <div class="px-6 py-4 border-b border-[#414751]/20 bg-[#1b2027]/50 flex justify-between items-center">
         <h3 class="text-lg font-medium text-[#dee2ec]">Active Tracking Database</h3>
+        <input id="sat-search" oninput="filterTable('sat-search','sat-table-body')" placeholder="Search..." class="bg-[#171c23] border border-[#414751]/30 rounded px-3 py-1 text-sm text-[#dee2ec] outline-none w-48"/>
       </div>
       <div class="overflow-auto max-h-[600px]">
         <table class="w-full text-left">
@@ -152,31 +177,14 @@
         <span id="wx-kp-time" class="data-font text-sm text-[#dee2ec]">—</span>
       </div>
     </div>
-    <div class="lg:col-span-7 glass-card rounded-xl p-6">
-      <h3 class="text-lg font-medium text-[#dee2ec] mb-6 flex items-center gap-2"><span class="material-symbols-outlined text-[#ffb953]">monitoring</span>Observation Data</h3>
-      <div class="grid grid-cols-3 gap-4 mb-6">
-        <div class="bg-[#1b2027] p-4 rounded border border-[#414751]/20 text-center">
-          <span class="label-caps text-[#c1c7d3] block mb-2">Header Time</span>
-          <span id="wx-header-time" class="data-font text-sm text-[#a4c9ff]">—</span>
-        </div>
-        <div class="bg-[#1b2027] p-4 rounded border border-[#414751]/20 text-center">
-          <span class="label-caps text-[#c1c7d3] block mb-2">Header Kp</span>
-          <span id="wx-header-kp" class="data-font text-sm text-[#ffb953]">—</span>
-        </div>
-        <div class="bg-[#1b2027] p-4 rounded border border-[#414751]/20 text-center">
-          <span class="label-caps text-[#c1c7d3] block mb-2">Stations</span>
-          <span id="wx-header-stations" class="data-font text-sm text-[#dee2ec]">—</span>
-        </div>
+    <div class="lg:col-span-7 space-y-6">
+      <div class="glass-card rounded-xl p-6">
+        <h3 class="text-lg font-medium text-[#dee2ec] mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-[#ffb953]">monitoring</span>Kp History (7 days)</h3>
+        <canvas id="kp-chart" class="w-full" style="height:200px"></canvas>
       </div>
-      <div class="glass-card rounded-lg p-4">
-        <span class="label-caps text-[#c1c7d3] block mb-3">Kp Index Scale Reference</span>
-        <div class="space-y-2 data-font text-sm">
-          <div class="flex justify-between"><span class="text-[#66dd8b]">Kp 0-3</span><span class="text-[#c1c7d3]">Quiet — No significant activity</span></div>
-          <div class="flex justify-between"><span class="text-[#ffb953]">Kp 4</span><span class="text-[#c1c7d3]">Active — Possible aurora at high latitudes</span></div>
-          <div class="flex justify-between"><span class="text-[#ffb953]">Kp 5</span><span class="text-[#c1c7d3]">Minor Storm (G1) — Weak power grid fluctuations</span></div>
-          <div class="flex justify-between"><span class="text-[#ffb4ab]">Kp 6-7</span><span class="text-[#c1c7d3]">Moderate/Strong Storm (G2-G3)</span></div>
-          <div class="flex justify-between"><span class="text-[#ff5449]">Kp 8-9</span><span class="text-[#c1c7d3]">Severe/Extreme Storm (G4-G5)</span></div>
-        </div>
+      <div class="glass-card rounded-xl p-6">
+        <h3 class="text-lg font-medium text-[#dee2ec] mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-[#ffb4ab]">warning</span>NASA DONKI Events</h3>
+        <div id="wx-events" class="space-y-2"><p class="text-[#c1c7d3] text-sm">Loading...</p></div>
       </div>
     </div>
   </div>
@@ -186,11 +194,11 @@
 <div id="page-astro" class="page max-w-[1400px] mx-auto">
   <h2 class="text-2xl font-semibold mb-6">Astronomical Objects Database</h2>
   <div class="glass-card rounded-xl overflow-hidden mb-6">
-    <div class="px-6 py-4 border-b border-[#414751]/20 bg-[#1b2027]/50"><h3 class="text-lg font-medium">Objects Catalog</h3></div>
+    <div class="px-6 py-4 border-b border-[#414751]/20 bg-[#1b2027]/50 flex justify-between items-center"><h3 class="text-lg font-medium">Objects Catalog</h3><input id="obj-search" oninput="filterTable('obj-search','obj-table-body')" placeholder="Search..." class="bg-[#171c23] border border-[#414751]/30 rounded px-3 py-1 text-sm text-[#dee2ec] outline-none w-48"/></div>
     <div class="overflow-auto max-h-[400px]">
       <table class="w-full text-left">
         <thead class="sticky top-0 bg-[#1b2027] label-caps text-[#c1c7d3] border-b border-[#414751]/20">
-          <tr><th class="px-6 py-3">Name</th><th class="px-6 py-3">Type</th><th class="px-6 py-3">RA</th><th class="px-6 py-3">Dec</th><th class="px-6 py-3">Distance</th></tr>
+          <tr><th class="px-6 py-3">Name</th><th class="px-6 py-3">Type</th><th class="px-6 py-3">RA</th><th class="px-6 py-3">Dec</th><th class="px-6 py-3">Distance</th><th class="px-4 py-3"></th></tr>
         </thead>
         <tbody id="obj-table-body" class="data-font text-sm text-[#dee2ec]"></tbody>
       </table>
@@ -216,11 +224,11 @@
   <h2 class="text-2xl font-semibold mb-6">Mission Data Center</h2>
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
     <div class="lg:col-span-8 glass-card rounded-xl overflow-hidden">
-      <div class="px-6 py-4 border-b border-[#414751]/20 bg-[#1b2027]/50"><h3 class="text-lg font-medium">Mission Registry</h3></div>
+      <div class="px-6 py-4 border-b border-[#414751]/20 bg-[#1b2027]/50 flex justify-between items-center"><h3 class="text-lg font-medium">Mission Registry</h3><input id="mis-search" oninput="filterTable('mis-search','mission-table-body')" placeholder="Search..." class="bg-[#171c23] border border-[#414751]/30 rounded px-3 py-1 text-sm text-[#dee2ec] outline-none w-48"/></div>
       <div class="overflow-auto max-h-[400px]">
         <table class="w-full text-left">
           <thead class="sticky top-0 bg-[#1b2027] label-caps text-[#c1c7d3] border-b border-[#414751]/20">
-            <tr><th class="px-6 py-3">Mission</th><th class="px-6 py-3">Agency</th><th class="px-6 py-3">Launch</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Info</th></tr>
+            <tr><th class="px-6 py-3">Mission</th><th class="px-6 py-3">Agency</th><th class="px-6 py-3">Launch</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Info</th><th class="px-4 py-3"></th></tr>
           </thead>
           <tbody id="mission-table-body" class="data-font text-sm text-[#dee2ec]"></tbody>
         </table>
@@ -247,6 +255,20 @@
       <input name="description" placeholder="Description" class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none"/>
       <button type="submit" class="bg-[#a4c9ff] text-[#001c39] font-bold py-2 px-6 rounded hover:bg-[#d4e3ff] transition-colors label-caps">Add Mission</button>
     </form>
+  </div>
+</div>
+
+<!-- NEO Table -->
+  <div class="glass-card rounded-xl overflow-hidden mt-6">
+    <div class="px-6 py-4 border-b border-[#414751]/20 bg-[#1b2027]/50"><h3 class="text-lg font-medium flex items-center gap-2"><span class="material-symbols-outlined text-[#ffb4ab]">public</span>Near-Earth Objects (Today)</h3></div>
+    <div class="overflow-auto max-h-[300px]">
+      <table class="w-full text-left">
+        <thead class="sticky top-0 bg-[#1b2027] label-caps text-[#c1c7d3] border-b border-[#414751]/20">
+          <tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Diameter</th><th class="px-4 py-2">Miss Distance</th><th class="px-4 py-2">Velocity</th><th class="px-4 py-2">Hazardous</th></tr>
+        </thead>
+        <tbody id="neo-table-body" class="data-font text-sm text-[#dee2ec]"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 

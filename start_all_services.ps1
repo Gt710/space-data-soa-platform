@@ -1,7 +1,7 @@
 Write-Host "Starting all space-data SOA services..." -ForegroundColor Cyan
 
-# 1. Satellite Tracker (Kotlin) - Port 8080
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd services\satellite-tracker; .\gradlew.bat run"
+# 1. Satellite Tracker (Python) - Port 8080
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd services\satellite-tracker-py; .\venv\Scripts\activate; uvicorn main:app --reload --port 8080"
 
 # 2. Space Weather (Python) - Port 8001
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd services\space-weather; .\venv\Scripts\activate; uvicorn main:app --reload --port 8001"
@@ -20,7 +20,7 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd frontend; pyth
 
 Write-Host "All services have been started in separate windows!" -ForegroundColor Green
 Write-Host "Ports map:"
-Write-Host "8080 - Satellite Tracker (Kotlin)"
+Write-Host "8080 - Satellite Tracker (Python)"
 Write-Host "8001 - Space Weather"
 Write-Host "8002 - Astro Objects"
 Write-Host "8003 - Mission Data"

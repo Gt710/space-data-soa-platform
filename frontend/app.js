@@ -117,7 +117,7 @@ function getKpLabel(kp) {
 function renderSystemHealth() {
     const container = document.getElementById('system-health');
     const services = [
-        { name: 'Satellite Tracker', key: 'satellite-tracker', tech: 'Ktor', port: 8080 },
+        { name: 'Satellite Tracker', key: 'satellite-tracker', tech: 'FastAPI', port: 8080 },
         { name: 'Space Weather', key: 'space-weather', tech: 'FastAPI', port: 8001 },
         { name: 'Astro Objects', key: 'astro-objects', tech: 'FastAPI', port: 8002 },
         { name: 'Mission Data', key: 'mission-data', tech: 'FastAPI', port: 8003 },
@@ -232,12 +232,6 @@ async function loadWeather() {
         // Render Kp scale
         renderKpScale(kp);
     }
-    // Headers data
-    if (data && data.headers) {
-        document.getElementById('wx-header-time').textContent = data.headers.time_tag || '—';
-        document.getElementById('wx-header-kp').textContent = data.headers.Kp || '—';
-        document.getElementById('wx-header-stations').textContent = data.headers.station_count || '—';
-    }
 }
 
 function renderKpScale(kp) {
@@ -274,6 +268,7 @@ function renderObjectsTable(objects) {
             <td class="px-6 py-3 data-font text-sm">${o.right_ascension}</td>
             <td class="px-6 py-3 data-font text-sm">${o.declination}</td>
             <td class="px-6 py-3 data-font text-sm">${o.distance_ly ? o.distance_ly + ' ly' : '—'}</td>
+            <td class="px-4 py-3"><button onclick="deleteObject(${o.id})" class="text-[#ffb4ab] hover:text-[#ff5449] text-sm">✕</button></td>
         </tr>
     `).join('');
 }
@@ -298,9 +293,10 @@ async function addAstroObject(e) {
 
 // ===== MISSIONS =====
 async function loadMissions() {
-    const [missionsData, apodData] = await Promise.all([
+    const [missionsData, apodData, neoData] = await Promise.all([
         fetchJSON(API.missions + '/missions'),
-        fetchJSON(API.missions + '/apod')
+        fetchJSON(API.missions + '/apod'),
+        fetchJSON(API.missions + '/neo')
     ]);
     if (missionsData && Array.isArray(missionsData)) {
         state.missions = missionsData;
@@ -312,12 +308,16 @@ async function loadMissions() {
         document.getElementById('mission-apod-title').textContent = apodData.title || '';
         document.getElementById('mission-apod-desc').textContent = apodData.explanation ? apodData.explanation.substring(0, 200) + '...' : '';
     }
+    // NEO data
+    if (neoData && neoData.data) {
+        renderNeoTable(neoData.data);
+    }
 }
 
 function renderMissionsTable(missions) {
     const tbody = document.getElementById('mission-table-body');
     if (!missions.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-[#c1c7d3]">No missions yet. Add one below.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-[#c1c7d3]">No missions yet. Add one below.</td></tr>';
         return;
     }
     tbody.innerHTML = missions.map(m => {
@@ -329,6 +329,23 @@ function renderMissionsTable(missions) {
             <td class="px-6 py-3 data-font text-sm">${m.launch_date || '—'}</td>
             <td class="px-6 py-3 ${statusColor} font-bold uppercase data-font text-sm">${m.status}</td>
             <td class="px-6 py-3 text-sm text-[#c1c7d3]">${m.description || '—'}</td>
+            <td class="px-4 py-3"><button onclick="deleteMission(${m.id})" class="text-[#ffb4ab] hover:text-[#ff5449] text-sm">✕</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function renderNeoTable(neos) {
+    const tbody = document.getElementById('neo-table-body');
+    if (!tbody) return;
+    if (!neos.length) { tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-[#c1c7d3]">No NEOs today</td></tr>'; return; }
+    tbody.innerHTML = neos.map(n => {
+        const hazClass = n.is_potentially_hazardous ? 'text-[#ffb4ab]' : 'text-[#66dd8b]';
+        return `<tr class="data-row border-b border-[#414751]/10">
+            <td class="px-4 py-2 text-[#a4c9ff]">${n.name}</td>
+            <td class="px-4 py-2 data-font text-xs">${Math.round(n.estimated_diameter_m.min)}-${Math.round(n.estimated_diameter_m.max)} m</td>
+            <td class="px-4 py-2 data-font text-xs">${parseFloat(n.close_approach).toFixed(4)} AU</td>
+            <td class="px-4 py-2 data-font text-xs">${parseFloat(n.velocity_kmps).toFixed(1)} km/s</td>
+            <td class="px-4 py-2 ${hazClass} font-bold text-xs">${n.is_potentially_hazardous ? 'YES' : 'No'}</td>
         </tr>`;
     }).join('');
 }
@@ -336,22 +353,168 @@ function renderMissionsTable(missions) {
 async function addMission(e) {
     e.preventDefault();
     const form = e.target;
-    const body = {
-        name: form.name.value,
-        agency: form.agency.value,
-        launch_date: form.launch_date.value || null,
-        status: form.status.value,
-        description: form.description.value || null
-    };
+    const body = { name: form.name.value, agency: form.agency.value, launch_date: form.launch_date.value || null, status: form.status.value, description: form.description.value || null };
     try {
-        const res = await fetch(API.missions + '/missions', {
-            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
-        });
+        const res = await fetch(API.missions + '/missions/', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
         if (res.ok) { form.reset(); loadMissions(); }
     } catch (e) { console.error(e); }
+}
+
+async function deleteMission(id) {
+    if (!confirm('Delete this mission?')) return;
+    await fetch(API.missions + '/missions/' + id, { method: 'DELETE' });
+    loadMissions();
+}
+
+async function deleteObject(id) {
+    if (!confirm('Delete this object?')) return;
+    await fetch(API.astro + '/objects/' + id, { method: 'DELETE' });
+    loadAstroObjects();
+}
+
+// ===== SPACE WEATHER - DONKI =====
+async function loadDonkiEvents() {
+    const [cme, flr, gst] = await Promise.all([
+        fetchJSON(API.weather + '/donki/cme'),
+        fetchJSON(API.weather + '/donki/flr'),
+        fetchJSON(API.weather + '/donki/gst')
+    ]);
+    const container = document.getElementById('wx-events');
+    if (!container) return;
+    let html = '';
+    if (flr && flr.data) {
+        flr.data.slice(0, 3).forEach(f => {
+            html += `<div class="p-3 border border-[#414751]/20 rounded bg-[#171c23]/50 mb-2">
+                <div class="flex justify-between"><span class="font-bold text-sm">Solar Flare ${f.classType || ''}</span><span class="status-badge ${f.classType && f.classType.startsWith('X') ? 'status-error' : 'status-warn'}">${f.classType || 'N/A'}</span></div>
+                <div class="data-font text-xs text-[#c1c7d3] mt-1">Peak: ${f.peakTime || '—'}</div></div>`;
+        });
+    }
+    if (cme && cme.data) {
+        cme.data.slice(0, 3).forEach(c => {
+            html += `<div class="p-3 border border-[#414751]/20 rounded bg-[#171c23]/50 mb-2">
+                <div class="flex justify-between"><span class="font-bold text-sm">CME</span><span class="status-badge status-warn">CME</span></div>
+                <div class="data-font text-xs text-[#c1c7d3] mt-1">${c.startTime || '—'} | ${c.sourceLocation || '—'}</div></div>`;
+        });
+    }
+    if (gst && gst.data) {
+        gst.data.slice(0, 2).forEach(g => {
+            html += `<div class="p-3 border border-[#414751]/20 rounded bg-[#171c23]/50 mb-2">
+                <div class="flex justify-between"><span class="font-bold text-sm">Geomagnetic Storm</span><span class="status-badge status-error">GST</span></div>
+                <div class="data-font text-xs text-[#c1c7d3] mt-1">${g.startTime || '—'}</div></div>`;
+        });
+    }
+    container.innerHTML = html || '<p class="text-[#c1c7d3] text-sm">No recent DONKI events</p>';
+}
+
+async function loadKpChart() {
+    const data = await fetchJSON(API.weather + '/kp-history');
+    if (!data || !data.data) return;
+    const canvas = document.getElementById('kp-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const entries = data.data;
+    const w = canvas.width = canvas.offsetWidth;
+    const h = canvas.height = 200;
+    ctx.clearRect(0, 0, w, h);
+    // Draw grid
+    ctx.strokeStyle = 'rgba(164,201,255,0.1)';
+    for (let i = 0; i <= 9; i++) { ctx.beginPath(); ctx.moveTo(0, h - i * h / 9); ctx.lineTo(w, h - i * h / 9); ctx.stroke(); }
+    // Draw line
+    if (entries.length < 2) return;
+    ctx.beginPath();
+    entries.forEach((e, i) => {
+        const x = (i / (entries.length - 1)) * w;
+        const y = h - (e.Kp / 9) * h;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#a4c9ff'; ctx.lineWidth = 2; ctx.stroke();
+    // Fill
+    ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+    ctx.fillStyle = 'rgba(164,201,255,0.05)'; ctx.fill();
+}
+
+// Override loadWeather to also load DONKI + chart
+const _origLoadWeather = loadWeather;
+loadWeather = async function() {
+    await _origLoadWeather();
+    loadDonkiEvents();
+    setTimeout(loadKpChart, 100);
+};
+
+// ===== AUTH =====
+let authToken = localStorage.getItem('authToken');
+let authUser = localStorage.getItem('authUser');
+
+function updateAuthUI() {
+    const authSection = document.getElementById('auth-section');
+    const userSection = document.getElementById('user-section');
+    if (!authSection) return;
+    if (authToken) {
+        authSection.style.display = 'none';
+        if (userSection) { userSection.style.display = 'block'; document.getElementById('user-name').textContent = authUser || 'User'; }
+    } else {
+        authSection.style.display = 'block';
+        if (userSection) userSection.style.display = 'none';
+    }
+}
+
+async function loginUser(e) {
+    e.preventDefault();
+    const form = e.target;
+    const body = { username: form.username.value, password: form.password.value };
+    try {
+        const res = await fetch(API.users + '/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+        if (res.ok) {
+            const data = await res.json();
+            authToken = data.access_token;
+            authUser = data.username;
+            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('authUser', authUser);
+            updateAuthUI();
+            form.reset();
+            document.getElementById('auth-error').textContent = '';
+        } else {
+            document.getElementById('auth-error').textContent = 'Invalid credentials';
+        }
+    } catch (e) { document.getElementById('auth-error').textContent = 'Connection error'; }
+}
+
+async function registerUser(e) {
+    e.preventDefault();
+    const form = e.target;
+    const body = { username: form.reg_username.value, email: form.reg_email.value, password: form.reg_password.value };
+    try {
+        const res = await fetch(API.users + '/register', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+        if (res.ok) {
+            document.getElementById('reg-msg').textContent = 'Registered! Please login.';
+            document.getElementById('reg-msg').className = 'text-[#66dd8b] text-sm mt-2';
+            form.reset();
+        } else {
+            const err = await res.json();
+            document.getElementById('reg-msg').textContent = err.detail || 'Error';
+            document.getElementById('reg-msg').className = 'text-[#ffb4ab] text-sm mt-2';
+        }
+    } catch (e) { document.getElementById('reg-msg').textContent = 'Connection error'; }
+}
+
+function logoutUser() {
+    authToken = null; authUser = null;
+    localStorage.removeItem('authToken'); localStorage.removeItem('authUser');
+    updateAuthUI();
+}
+
+// ===== SEARCH =====
+function filterTable(inputId, tableBodyId) {
+    const query = document.getElementById(inputId).value.toLowerCase();
+    const rows = document.getElementById(tableBodyId).querySelectorAll('tr');
+    rows.forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+    });
 }
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
     navigate('dashboard');
+    updateAuthUI();
 });
+
