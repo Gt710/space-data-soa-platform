@@ -1,0 +1,22 @@
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Використовуємо спільну БД, але префікси таблиць або окрему логіку. Для простоти - одна БД.
+SQLALCHEMY_DATABASE_URL = "postgresql://admin:admin_pass@localhost:5432/spacedata"
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

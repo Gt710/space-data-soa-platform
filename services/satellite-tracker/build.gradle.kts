@@ -26,6 +26,7 @@ dependencies {
     implementation("io.ktor:ktor-server-netty-jvm")
     implementation("io.ktor:ktor-server-content-negotiation-jvm")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm")
+    implementation("io.ktor:ktor-server-cors-jvm")
     
     // Клієнт для запитів до Space-Track
     implementation("io.ktor:ktor-client-core-jvm")
