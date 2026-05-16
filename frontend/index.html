@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AstroMonitor OS - Space Data Platform</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="styles.css" rel="stylesheet"/>
+</head>
+<body class="min-h-screen flex overflow-hidden">
+
+<!-- Sidebar -->
+<nav class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-[#1b2027]/80 backdrop-blur-xl border-r border-[#414751]/10 py-8 z-40">
+  <div class="px-6 mb-8">
+    <h1 class="text-[#a4c9ff] text-4xl font-bold tracking-tighter">AstroMonitor</h1>
+    <p class="data-font text-sm text-[#c1c7d3] mt-1">Precision Aerospace</p>
+  </div>
+  <div class="flex-1 px-4 space-y-1">
+    <a id="nav-dashboard" onclick="navigate('dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-[#c1c7d3] cursor-pointer"><span class="material-symbols-outlined">dashboard</span>Dashboard</a>
+    <a id="nav-satellites" onclick="navigate('satellites')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-[#c1c7d3] cursor-pointer"><span class="material-symbols-outlined">satellite_alt</span>Satellite Tracker</a>
+    <a id="nav-weather" onclick="navigate('weather')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-[#c1c7d3] cursor-pointer"><span class="material-symbols-outlined">wb_sunny</span>Space Weather</a>
+    <a id="nav-astro" onclick="navigate('astro')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-[#c1c7d3] cursor-pointer"><span class="material-symbols-outlined">rocket_launch</span>Astro Objects</a>
+    <a id="nav-missions" onclick="navigate('missions')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-[#c1c7d3] cursor-pointer"><span class="material-symbols-outlined">database</span>Mission Data</a>
+  </div>
+  <div class="px-4 mt-auto space-y-2">
+    <div class="mx-2 px-4 py-3 glass-card rounded-lg flex items-center justify-between">
+      <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-[#66dd8b] breathing-dot"></div><span class="data-font text-sm">System</span></div>
+      <span class="label-caps text-[#66dd8b]">NOMINAL</span>
+    </div>
+  </div>
+</nav>
+
+<!-- Top Bar -->
+<header class="fixed top-0 right-0 left-0 md:left-64 h-16 bg-[#0f141b]/80 backdrop-blur-xl border-b border-[#414751]/10 flex justify-between items-center px-8 z-30">
+  <div></div>
+  <div class="flex items-center gap-6 data-font text-sm">
+    <span class="hidden lg:flex items-center gap-2">NASA API: <span id="status-nasa" class="text-[#66dd8b] font-bold">CHECKING</span></span>
+    <span class="hidden lg:flex items-center gap-2">Celestrak: <span id="status-spacetrack" class="text-[#66dd8b] font-bold">CHECKING</span></span>
+    <span class="material-symbols-outlined text-[#c1c7d3] cursor-pointer hover:text-[#a4c9ff]">notifications</span>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main class="md:ml-64 mt-16 flex-1 overflow-y-auto p-8 grid-bg">
+
+<!-- ===== DASHBOARD ===== -->
+<div id="page-dashboard" class="page max-w-[1400px] mx-auto">
+  <h2 class="text-2xl font-semibold mb-6">Mission Control Dashboard</h2>
+  <!-- Metrics Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <!-- Satellites Card -->
+    <div class="glass-card rounded-xl p-6 transition-all">
+      <div class="flex justify-between items-start mb-4">
+        <div class="flex items-center gap-2 text-[#a4c9ff]"><span class="material-symbols-outlined">satellite_alt</span><span class="label-caps text-[#c1c7d3]">Active Satellites</span></div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="mb-4"><span id="dash-sat-count" class="metric-value text-[#dee2ec]">—</span></div>
+      <div id="dash-sat-list" class="space-y-2 text-sm"></div>
+    </div>
+    <!-- Weather Card -->
+    <div class="glass-card rounded-xl p-6 transition-all">
+      <div class="flex justify-between items-start mb-4">
+        <div class="flex items-center gap-2 text-[#ffb953]"><span class="material-symbols-outlined">wb_sunny</span><span class="label-caps text-[#c1c7d3]">Geomagnetic Index</span></div>
+        <span class="status-badge status-warn">Kp</span>
+      </div>
+      <div class="mb-2 flex items-baseline gap-2">
+        <span id="dash-kp" class="metric-value text-[#ffb953]">—</span>
+        <span id="dash-kp-label" class="data-font text-sm text-[#c1c7d3]"></span>
+      </div>
+      <div class="progress-bar"><div id="dash-kp-bar" class="progress-fill bg-gradient-to-r from-[#66dd8b] via-[#ffb953] to-[#ffb4ab]" style="width:0%"></div></div>
+    </div>
+    <!-- APOD Card -->
+    <div class="glass-card rounded-xl p-0 overflow-hidden transition-all">
+      <img id="dash-apod-img" src="" alt="APOD" class="w-full h-40 object-cover opacity-80"/>
+      <div class="p-4">
+        <span class="label-caps text-[#c1c7d3]">NASA Photo of the Day</span>
+        <p id="dash-apod-title" class="text-[#a4c9ff] font-semibold mt-1">Loading...</p>
+      </div>
+    </div>
+  </div>
+  <!-- System Health -->
+  <div class="glass-card rounded-xl p-6">
+    <h3 class="text-xl font-medium text-[#dee2ec] border-b border-[#414751]/20 pb-3 mb-4 flex items-center gap-2">
+      <span class="material-symbols-outlined text-[#66dd8b]">memory</span>Microservices Health
+    </h3>
+    <div id="system-health" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  </div>
+</div>
+
+<!-- ===== SATELLITES ===== -->
+<div id="page-satellites" class="page max-w-[1400px] mx-auto">
+  <h2 class="text-2xl font-semibold mb-6">Satellite Tracker</h2>
+  <div id="sat-loading" class="hidden text-center py-12 text-[#c1c7d3]">Loading TLE data from Celestrak...</div>
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- Table -->
+    <div class="lg:col-span-8 glass-card rounded-xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-[#414751]/20 bg-[#1b2027]/50 flex justify-between items-center">
+        <h3 class="text-lg font-medium text-[#dee2ec]">Active Tracking Database</h3>
+      </div>
+      <div class="overflow-auto max-h-[600px]">
+        <table class="w-full text-left">
+          <thead class="sticky top-0 bg-[#1b2027] border-b border-[#414751]/20 label-caps text-[#c1c7d3]">
+            <tr><th class="px-6 py-3">Designation</th><th class="px-6 py-3">NORAD ID</th><th class="px-6 py-3">TLE Line 1</th><th class="px-6 py-3 text-center">Status</th></tr>
+          </thead>
+          <tbody id="sat-table-body" class="data-font text-sm text-[#dee2ec]"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Telemetry Panel -->
+    <div class="lg:col-span-4 glass-card rounded-xl overflow-hidden border-t-[#a4c9ff]/30">
+      <div class="p-6 border-b border-[#414751]/20">
+        <div class="label-caps text-[#a4c9ff] flex items-center gap-2 mb-1"><span class="w-1.5 h-1.5 rounded-full bg-[#a4c9ff] pulse-anim"></span>Live Telemetry</div>
+        <h3 id="tel-name" class="text-2xl font-bold text-[#dee2ec]">Select a satellite</h3>
+        <p id="tel-norad" class="data-font text-sm text-[#c1c7d3] mt-1"></p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-[#1b2027] p-3 rounded border border-[#414751]/20"><span class="label-caps text-[#c1c7d3] block mb-1">Inclination</span><span id="tel-incl" class="data-font text-lg text-[#a4c9ff]">—</span></div>
+          <div class="bg-[#1b2027] p-3 rounded border border-[#414751]/20"><span class="label-caps text-[#c1c7d3] block mb-1">RAAN</span><span id="tel-raan" class="data-font text-lg text-[#a4c9ff]">—</span></div>
+          <div class="bg-[#1b2027] p-3 rounded border border-[#414751]/20"><span class="label-caps text-[#c1c7d3] block mb-1">Eccentricity</span><span id="tel-ecc" class="data-font text-lg text-[#dee2ec]">—</span></div>
+          <div class="bg-[#1b2027] p-3 rounded border border-[#414751]/20"><span class="label-caps text-[#c1c7d3] block mb-1">Mean Motion</span><span id="tel-mm" class="data-font text-lg text-[#dee2ec]">—</span></div>
+        </div>
+        <div class="bg-[#1b2027] p-3 rounded border border-[#414751]/20">
+          <span class="label-caps text-[#c1c7d3] block mb-2">TLE Data</span>
+          <pre id="tel-tle1" class="data-font text-xs text-[#c1c7d3] whitespace-pre-wrap break-all">—</pre>
+          <pre id="tel-tle2" class="data-font text-xs text-[#c1c7d3] whitespace-pre-wrap break-all mt-1">—</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SPACE WEATHER ===== -->
+<div id="page-weather" class="page max-w-[1400px] mx-auto">
+  <h2 class="text-2xl font-semibold mb-6">Space Weather Monitor</h2>
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="lg:col-span-5 glass-card rounded-xl p-6">
+      <div class="flex justify-between items-start mb-6">
+        <div><span class="label-caps text-[#c1c7d3]">Planetary K-Index</span><p class="data-font text-sm text-[#c1c7d3] mt-1">Source: <span id="wx-source">NOAA SWPC</span></p></div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="text-center my-8">
+        <span id="wx-kp-value" class="metric-value text-[#66dd8b]">—</span>
+        <p id="wx-kp-label" class="text-lg text-[#c1c7d3] mt-2"></p>
+      </div>
+      <div id="wx-kp-scale" class="flex mb-4"></div>
+      <div class="data-font text-xs text-[#c1c7d3] flex justify-between"><span>0 Quiet</span><span>5 Storm</span><span>9 Extreme</span></div>
+      <div class="mt-6 pt-4 border-t border-[#414751]/20">
+        <span class="label-caps text-[#c1c7d3] block mb-2">Last Update</span>
+        <span id="wx-kp-time" class="data-font text-sm text-[#dee2ec]">—</span>
+      </div>
+    </div>
+    <div class="lg:col-span-7 glass-card rounded-xl p-6">
+      <h3 class="text-lg font-medium text-[#dee2ec] mb-6 flex items-center gap-2"><span class="material-symbols-outlined text-[#ffb953]">monitoring</span>Observation Data</h3>
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-[#1b2027] p-4 rounded border border-[#414751]/20 text-center">
+          <span class="label-caps text-[#c1c7d3] block mb-2">Header Time</span>
+          <span id="wx-header-time" class="data-font text-sm text-[#a4c9ff]">—</span>
+        </div>
+        <div class="bg-[#1b2027] p-4 rounded border border-[#414751]/20 text-center">
+          <span class="label-caps text-[#c1c7d3] block mb-2">Header Kp</span>
+          <span id="wx-header-kp" class="data-font text-sm text-[#ffb953]">—</span>
+        </div>
+        <div class="bg-[#1b2027] p-4 rounded border border-[#414751]/20 text-center">
+          <span class="label-caps text-[#c1c7d3] block mb-2">Stations</span>
+          <span id="wx-header-stations" class="data-font text-sm text-[#dee2ec]">—</span>
+        </div>
+      </div>
+      <div class="glass-card rounded-lg p-4">
+        <span class="label-caps text-[#c1c7d3] block mb-3">Kp Index Scale Reference</span>
+        <div class="space-y-2 data-font text-sm">
+          <div class="flex justify-between"><span class="text-[#66dd8b]">Kp 0-3</span><span class="text-[#c1c7d3]">Quiet — No significant activity</span></div>
+          <div class="flex justify-between"><span class="text-[#ffb953]">Kp 4</span><span class="text-[#c1c7d3]">Active — Possible aurora at high latitudes</span></div>
+          <div class="flex justify-between"><span class="text-[#ffb953]">Kp 5</span><span class="text-[#c1c7d3]">Minor Storm (G1) — Weak power grid fluctuations</span></div>
+          <div class="flex justify-between"><span class="text-[#ffb4ab]">Kp 6-7</span><span class="text-[#c1c7d3]">Moderate/Strong Storm (G2-G3)</span></div>
+          <div class="flex justify-between"><span class="text-[#ff5449]">Kp 8-9</span><span class="text-[#c1c7d3]">Severe/Extreme Storm (G4-G5)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ASTRO OBJECTS ===== -->
+<div id="page-astro" class="page max-w-[1400px] mx-auto">
+  <h2 class="text-2xl font-semibold mb-6">Astronomical Objects Database</h2>
+  <div class="glass-card rounded-xl overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-[#414751]/20 bg-[#1b2027]/50"><h3 class="text-lg font-medium">Objects Catalog</h3></div>
+    <div class="overflow-auto max-h-[400px]">
+      <table class="w-full text-left">
+        <thead class="sticky top-0 bg-[#1b2027] label-caps text-[#c1c7d3] border-b border-[#414751]/20">
+          <tr><th class="px-6 py-3">Name</th><th class="px-6 py-3">Type</th><th class="px-6 py-3">RA</th><th class="px-6 py-3">Dec</th><th class="px-6 py-3">Distance</th></tr>
+        </thead>
+        <tbody id="obj-table-body" class="data-font text-sm text-[#dee2ec]"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="glass-card rounded-xl p-6">
+    <h3 class="text-lg font-medium mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-[#a4c9ff]">add_circle</span>Add New Object</h3>
+    <form onsubmit="addAstroObject(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <input name="name" placeholder="Object Name" required class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none"/>
+      <select name="object_type" required class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none">
+        <option value="star">Star</option><option value="galaxy">Galaxy</option><option value="nebula">Nebula</option><option value="planet">Planet</option><option value="asteroid">Asteroid</option><option value="comet">Comet</option>
+      </select>
+      <input name="ra" placeholder="Right Ascension (e.g. 05h 34m)" required class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none"/>
+      <input name="dec" placeholder="Declination (e.g. +22° 00')" required class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none"/>
+      <input name="distance" placeholder="Distance (ly)" type="number" step="any" class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none"/>
+      <button type="submit" class="bg-[#a4c9ff] text-[#001c39] font-bold py-2 px-6 rounded hover:bg-[#d4e3ff] transition-colors label-caps">Add Object</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===== MISSIONS ===== -->
+<div id="page-missions" class="page max-w-[1400px] mx-auto">
+  <h2 class="text-2xl font-semibold mb-6">Mission Data Center</h2>
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+    <div class="lg:col-span-8 glass-card rounded-xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-[#414751]/20 bg-[#1b2027]/50"><h3 class="text-lg font-medium">Mission Registry</h3></div>
+      <div class="overflow-auto max-h-[400px]">
+        <table class="w-full text-left">
+          <thead class="sticky top-0 bg-[#1b2027] label-caps text-[#c1c7d3] border-b border-[#414751]/20">
+            <tr><th class="px-6 py-3">Mission</th><th class="px-6 py-3">Agency</th><th class="px-6 py-3">Launch</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Info</th></tr>
+          </thead>
+          <tbody id="mission-table-body" class="data-font text-sm text-[#dee2ec]"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="lg:col-span-4 glass-card rounded-xl overflow-hidden">
+      <img id="mission-apod-img" src="" alt="APOD" class="w-full h-48 object-cover opacity-80"/>
+      <div class="p-4">
+        <span class="label-caps text-[#c1c7d3]">NASA Astronomy Picture of the Day</span>
+        <p id="mission-apod-title" class="text-[#a4c9ff] font-semibold mt-1">Loading...</p>
+        <p id="mission-apod-desc" class="text-sm text-[#c1c7d3] mt-2"></p>
+      </div>
+    </div>
+  </div>
+  <div class="glass-card rounded-xl p-6">
+    <h3 class="text-lg font-medium mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-[#a4c9ff]">add_circle</span>Register Mission</h3>
+    <form onsubmit="addMission(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <input name="name" placeholder="Mission Name" required class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none"/>
+      <input name="agency" placeholder="Agency (NASA, ESA...)" required class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none"/>
+      <input name="launch_date" type="date" class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none"/>
+      <select name="status" required class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none">
+        <option value="planned">Planned</option><option value="active">Active</option><option value="completed">Completed</option>
+      </select>
+      <input name="description" placeholder="Description" class="bg-[#171c23] border border-[#414751]/30 rounded px-4 py-2 text-[#dee2ec] focus:border-[#a4c9ff] outline-none"/>
+      <button type="submit" class="bg-[#a4c9ff] text-[#001c39] font-bold py-2 px-6 rounded hover:bg-[#d4e3ff] transition-colors label-caps">Add Mission</button>
+    </form>
+  </div>
+</div>
+
+</main>
+<script src="app.js"></script>
+</body>
+</html>
