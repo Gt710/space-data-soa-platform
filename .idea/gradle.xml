@@ -3,15 +3,7 @@
   <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/services/satellite-tracker" />
-        <option name="gradleJvm" value="#JAVA_HOME" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/services/satellite-tracker" />
-          </set>
-        </option>
-      </GradleProjectSettings>
+      <set />
     </option>
   </component>
 </project>
