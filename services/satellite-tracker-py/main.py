@@ -2,10 +2,14 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-import httpx
+import httpx, logging
 
+from auth import require_auth
 from database import engine, get_db, Base
 import models
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger("satellite-tracker")
 
 Base.metadata.create_all(bind=engine)
 
@@ -29,7 +33,8 @@ def read_root():
 def get_satellites(db: Session = Depends(get_db)):
     sats = db.query(models.Satellite).all()
     return [
-        {"name": s.name, "norad_id": s.norad_id, "launch_date": s.launch_date}
+        {"name": s.name, "norad_id": s.norad_id, "launch_date": s.launch_date,
+         "tle_line1": s.tle_line1 or "", "tle_line2": s.tle_line2 or ""}
         for s in sats
     ]
 
@@ -39,7 +44,8 @@ def get_satellite_by_norad(norad_id: int, db: Session = Depends(get_db)):
     sat = db.query(models.Satellite).filter(models.Satellite.norad_id == norad_id).first()
     if not sat:
         raise HTTPException(status_code=404, detail="Satellite not found")
-    return {"name": sat.name, "norad_id": sat.norad_id, "launch_date": sat.launch_date}
+    return {"name": sat.name, "norad_id": sat.norad_id, "launch_date": sat.launch_date,
+            "tle_line1": sat.tle_line1 or "", "tle_line2": sat.tle_line2 or ""}
 
 
 @app.get("/add-test")
@@ -56,6 +62,8 @@ class SatelliteCreate(BaseModel):
     name: str
     norad_id: int
     launch_date: str | None = None
+    tle_line1: str | None = None
+    tle_line2: str | None = None
 
 
 @app.post("/satellites")
@@ -71,7 +79,8 @@ def create_satellite(sat: SatelliteCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/fetch-tle")
-async def fetch_tle():
+async def fetch_tle(db: Session = Depends(get_db)):
+    """Fetch TLE from Celestrak, fallback to database if unavailable"""
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
@@ -99,9 +108,20 @@ async def fetch_tle():
                     "tle_line2": line2
                 })
 
-        return {"status": "success", "count": len(parsed), "data": parsed}
+        if parsed:
+            logger.info(f"Celestrak: fetched {len(parsed)} satellites")
+            return {"status": "success", "source": "celestrak", "count": len(parsed), "data": parsed}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        logger.warning(f"Celestrak unavailable: {e}")
+
+    # Fallback to database
+    sats = db.query(models.Satellite).filter(models.Satellite.tle_line1.isnot(None)).all()
+    db_data = [
+        {"name": s.name, "norad_id": str(s.norad_id), "tle_line1": s.tle_line1, "tle_line2": s.tle_line2}
+        for s in sats
+    ]
+    logger.info(f"Fallback to DB: {len(db_data)} satellites")
+    return {"status": "success", "source": "database", "count": len(db_data), "data": db_data}
 
 
 @app.post("/save-tle")
@@ -124,7 +144,8 @@ async def save_tle_to_db(db: Session = Depends(get_db)):
                 norad_id = int(line1[2:7].strip())
                 existing = db.query(models.Satellite).filter(models.Satellite.norad_id == norad_id).first()
                 if not existing:
-                    db.add(models.Satellite(name=name, norad_id=norad_id, launch_date=None))
+                    db.add(models.Satellite(name=name, norad_id=norad_id, launch_date=None,
+                                           tle_line1=line1, tle_line2=line2))
                     saved += 1
         db.commit()
         return {"status": "success", "saved": saved}

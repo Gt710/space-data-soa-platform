@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Text
 from database import Base
 
 class Satellite(Base):
@@ -7,3 +7,5 @@ class Satellite(Base):
     name = Column(String(100), nullable=False)
     norad_id = Column(Integer, unique=True, nullable=False)
     launch_date = Column(String(20), nullable=True)
+    tle_line1 = Column(Text, nullable=True)
+    tle_line2 = Column(Text, nullable=True)

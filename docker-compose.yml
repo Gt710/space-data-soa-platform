@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin_pass
+      POSTGRES_DB: spacedata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Satellite Tracker
+  satellite-tracker:
+    build: ./services/satellite-tracker-py
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://admin:admin_pass@postgres:5432/spacedata
+
+  # Space Weather
+  space-weather:
+    build: ./services/space-weather
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://admin:admin_pass@postgres:5432/spacedata
+      NASA_API_KEY: ${NASA_API_KEY:-DEMO_KEY}
+
+  # Astro Objects
+  astro-objects:
+    build: ./services/astro-objects
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://admin:admin_pass@postgres:5432/spacedata
+
+  # Mission Data
+  mission-data:
+    build: ./services/mission-data
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://admin:admin_pass@postgres:5432/spacedata
+      NASA_API_KEY: ${NASA_API_KEY:-DEMO_KEY}
+
+  # User Service
+  user-service:
+    build: ./services/user-service
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://admin:admin_pass@postgres:5432/spacedata
+
+  # API Gateway (Nginx)
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - satellite-tracker
+      - space-weather
+      - astro-objects
+      - mission-data
+      - user-service
+
+volumes:
+  postgres_data:

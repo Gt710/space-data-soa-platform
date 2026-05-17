@@ -4,21 +4,19 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 import requests
+import logging
 
+from auth import require_auth
 from database import engine, get_db, Base
 import models
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger("astro-objects")
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Astro Objects Service")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 class AstroObjectCreate(BaseModel):
     name: str
@@ -53,7 +51,8 @@ def get_object(obj_id: int, db: Session = Depends(get_db)):
     return obj
 
 @app.post("/objects/")
-def create_object(obj: AstroObjectCreate, db: Session = Depends(get_db)):
+def create_object(obj: AstroObjectCreate, db: Session = Depends(get_db), user: str = Depends(require_auth)):
+    logger.info(f"User {user} creating object: {obj.name}")
     db_obj = models.AstroObject(**obj.model_dump())
     db.add(db_obj)
     db.commit()
@@ -61,7 +60,8 @@ def create_object(obj: AstroObjectCreate, db: Session = Depends(get_db)):
     return db_obj
 
 @app.put("/objects/{obj_id}")
-def update_object(obj_id: int, obj: AstroObjectUpdate, db: Session = Depends(get_db)):
+def update_object(obj_id: int, obj: AstroObjectUpdate, db: Session = Depends(get_db), user: str = Depends(require_auth)):
+    logger.info(f"User {user} updating object {obj_id}")
     db_obj = db.query(models.AstroObject).filter(models.AstroObject.id == obj_id).first()
     if not db_obj:
         raise HTTPException(status_code=404, detail="Object not found")
@@ -72,7 +72,8 @@ def update_object(obj_id: int, obj: AstroObjectUpdate, db: Session = Depends(get
     return db_obj
 
 @app.delete("/objects/{obj_id}")
-def delete_object(obj_id: int, db: Session = Depends(get_db)):
+def delete_object(obj_id: int, db: Session = Depends(get_db), user: str = Depends(require_auth)):
+    logger.info(f"User {user} deleting object {obj_id}")
     db_obj = db.query(models.AstroObject).filter(models.AstroObject.id == obj_id).first()
     if not db_obj:
         raise HTTPException(status_code=404, detail="Object not found")
@@ -82,17 +83,11 @@ def delete_object(obj_id: int, db: Session = Depends(get_db)):
 
 @app.get("/search/{name}")
 def search_external(name: str):
-    """Search object in Simbad via TAP"""
     try:
         url = "https://simbad.cds.unistra.fr/simbad/sim-basic"
         params = {"Ident": name, "submit": "SIMBAD search", "output.format": "ASCII"}
         response = requests.get(url, params=params, timeout=10)
-        return {
-            "query": name,
-            "source": "Simbad CDS",
-            "status": "found" if response.status_code == 200 else "not_found",
-            "raw_data": response.text[:500] if response.status_code == 200 else None
-        }
+        return {"query": name, "source": "Simbad CDS", "status": "found" if response.status_code == 200 else "not_found", "raw_data": response.text[:500] if response.status_code == 200 else None}
     except Exception as e:
         return {"query": name, "status": "error", "message": str(e)}
 

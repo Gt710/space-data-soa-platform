@@ -160,32 +160,54 @@
 <!-- ===== SPACE WEATHER ===== -->
 <div id="page-weather" class="page max-w-[1400px] mx-auto">
   <h2 class="text-2xl font-semibold mb-6">Space Weather Monitor</h2>
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    <div class="lg:col-span-5 glass-card rounded-xl p-6">
-      <div class="flex justify-between items-start mb-6">
-        <div><span class="label-caps text-[#c1c7d3]">Planetary K-Index</span><p class="data-font text-sm text-[#c1c7d3] mt-1">Source: <span id="wx-source">NOAA SWPC</span></p></div>
-        <span class="status-badge status-live">LIVE</span>
-      </div>
-      <div class="text-center my-8">
-        <span id="wx-kp-value" class="metric-value text-[#66dd8b]">—</span>
-        <p id="wx-kp-label" class="text-lg text-[#c1c7d3] mt-2"></p>
-      </div>
-      <div id="wx-kp-scale" class="flex mb-4"></div>
-      <div class="data-font text-xs text-[#c1c7d3] flex justify-between"><span>0 Quiet</span><span>5 Storm</span><span>9 Extreme</span></div>
-      <div class="mt-6 pt-4 border-t border-[#414751]/20">
-        <span class="label-caps text-[#c1c7d3] block mb-2">Last Update</span>
-        <span id="wx-kp-time" class="data-font text-sm text-[#dee2ec]">—</span>
+  
+  <!-- Row 1: Side-by-Side Matching Height Columns -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+    <!-- Left: Planetary K-Index (col-span-5) -->
+    <div class="lg:col-span-5">
+      <div class="glass-card rounded-xl p-6 h-[320px] flex flex-col justify-between">
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="label-caps text-[#c1c7d3]">Planetary K-Index</span>
+            <p class="data-font text-xs text-[#c1c7d3] mt-1">Source: <span id="wx-source">NOAA SWPC</span></p>
+          </div>
+          <span class="status-badge status-live">LIVE</span>
+        </div>
+        <div class="text-center my-2">
+          <span id="wx-kp-value" class="metric-value text-[#66dd8b]">—</span>
+          <p id="wx-kp-label" class="text-base text-[#c1c7d3] mt-0.5"></p>
+        </div>
+        <div>
+          <div id="wx-kp-scale" class="flex mb-2"></div>
+          <div class="data-font text-xs text-[#c1c7d3] flex justify-between mb-3"><span>0 Quiet</span><span>5 Storm</span><span>9 Extreme</span></div>
+          <div class="pt-2 border-t border-[#414751]/20 flex justify-between items-center">
+            <span class="label-caps text-[#c1c7d3] text-xs">Last Update:</span>
+            <span id="wx-kp-time" class="data-font text-xs text-[#dee2ec]">—</span>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="lg:col-span-7 space-y-6">
-      <div class="glass-card rounded-xl p-6">
-        <h3 class="text-lg font-medium text-[#dee2ec] mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-[#ffb953]">monitoring</span>Kp History (7 days)</h3>
-        <canvas id="kp-chart" class="w-full" style="height:200px"></canvas>
+    
+    <!-- Right: Kp History Chart (col-span-7) -->
+    <div class="lg:col-span-7">
+      <div class="glass-card rounded-xl p-6 h-[320px] flex flex-col justify-between">
+        <h3 class="text-lg font-medium text-[#dee2ec] mb-2 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[#ffb953]">monitoring</span>Kp History (7 days)
+        </h3>
+        <div class="flex-1 flex items-center justify-center relative">
+          <canvas id="kp-chart" class="w-full h-full" style="height: 200px; min-height: 200px;"></canvas>
+        </div>
       </div>
-      <div class="glass-card rounded-xl p-6">
-        <h3 class="text-lg font-medium text-[#dee2ec] mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-[#ffb4ab]">warning</span>NASA DONKI Events</h3>
-        <div id="wx-events" class="space-y-2"><p class="text-[#c1c7d3] text-sm">Loading...</p></div>
-      </div>
+    </div>
+  </div>
+  
+  <!-- Row 2: Full-Width NASA DONKI Events Grid (col-span-12) -->
+  <div class="glass-card rounded-xl p-6">
+    <h3 class="text-lg font-medium text-[#dee2ec] mb-4 flex items-center gap-2">
+      <span class="material-symbols-outlined text-[#ffb4ab]">warning</span>NASA DONKI Events
+    </h3>
+    <div id="wx-events" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <p class="text-[#c1c7d3] text-sm">Loading...</p>
     </div>
   </div>
 </div>

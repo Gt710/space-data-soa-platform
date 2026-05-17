@@ -36,6 +36,13 @@ function navigate(page) {
 }
 
 // Fetch helpers
+function authHeaders() {
+    const h = {'Content-Type': 'application/json'};
+    const token = localStorage.getItem('authToken');
+    if (token) h['Authorization'] = 'Bearer ' + token;
+    return h;
+}
+
 async function fetchJSON(url) {
     try {
         const res = await fetch(url);
@@ -168,7 +175,7 @@ async function loadSatellites() {
     document.getElementById('sat-loading').classList.remove('hidden');
     const data = await fetchJSON(API.satellites + '/fetch-tle');
     document.getElementById('sat-loading').classList.add('hidden');
-    if (data && data.data) {
+    if (data && data.data && data.data.length > 0) {
         state.satellites = data.data;
         renderSatelliteTable(data.data);
         if (data.data.length > 0) renderTelemetry(data.data[0]);
@@ -186,7 +193,7 @@ function renderSatelliteTable(sats) {
                 <span class="${i === 0 ? 'font-bold text-[#a4c9ff]' : ''}">${s.name}</span>
             </td>
             <td class="px-6 py-3 text-[#c1c7d3]">${s.norad_id}</td>
-            <td class="px-6 py-3 data-font text-sm">${s.tle_line1.substring(0, 30)}...</td>
+            <td class="px-6 py-3 data-font text-sm">${s.tle_line1 ? s.tle_line1.substring(0, 30) + '...' : 'N/A'}</td>
             <td class="px-6 py-3 text-center"><span class="inline-block w-2 h-2 rounded-full bg-[#66dd8b] shadow-[0_0_8px_rgba(102,221,139,0.5)]"></span></td>
         </tr>
     `).join('');
@@ -284,10 +291,11 @@ async function addAstroObject(e) {
         distance_ly: form.distance.value ? parseFloat(form.distance.value) : null
     };
     try {
-        const res = await fetch(API.astro + '/objects', {
-            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+        const res = await fetch(API.astro + '/objects/', {
+            method: 'POST', headers: authHeaders(), body: JSON.stringify(body)
         });
         if (res.ok) { form.reset(); loadAstroObjects(); }
+        else if (res.status === 401) { alert('Please login first'); }
     } catch (e) { console.error(e); }
 }
 
@@ -355,20 +363,25 @@ async function addMission(e) {
     const form = e.target;
     const body = { name: form.name.value, agency: form.agency.value, launch_date: form.launch_date.value || null, status: form.status.value, description: form.description.value || null };
     try {
-        const res = await fetch(API.missions + '/missions/', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+        const res = await fetch(API.missions + '/missions/', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
         if (res.ok) { form.reset(); loadMissions(); }
+        else if (res.status === 401) { alert('Please login first'); }
     } catch (e) { console.error(e); }
 }
 
 async function deleteMission(id) {
-    if (!confirm('Delete this mission?')) return;
-    await fetch(API.missions + '/missions/' + id, { method: 'DELETE' });
+    if (!localStorage.getItem('authToken')) { alert('Увійдіть в систему, щоб видаляти записи'); return; }
+    if (!confirm('Видалити цю місію?')) return;
+    const res = await fetch(API.missions + '/missions/' + id, { method: 'DELETE', headers: authHeaders() });
+    if (res.status === 401) { alert('Сесія закінчилась, увійдіть знову'); logoutUser(); return; }
     loadMissions();
 }
 
 async function deleteObject(id) {
-    if (!confirm('Delete this object?')) return;
-    await fetch(API.astro + '/objects/' + id, { method: 'DELETE' });
+    if (!localStorage.getItem('authToken')) { alert('Увійдіть в систему, щоб видаляти записи'); return; }
+    if (!confirm('Видалити цей об\'єкт?')) return;
+    const res = await fetch(API.astro + '/objects/' + id, { method: 'DELETE', headers: authHeaders() });
+    if (res.status === 401) { alert('Сесія закінчилась, увійдіть знову'); logoutUser(); return; }
     loadAstroObjects();
 }
 
@@ -384,21 +397,21 @@ async function loadDonkiEvents() {
     let html = '';
     if (flr && flr.data) {
         flr.data.slice(0, 3).forEach(f => {
-            html += `<div class="p-3 border border-[#414751]/20 rounded bg-[#171c23]/50 mb-2">
+            html += `<div class="p-3 border border-[#414751]/20 rounded bg-[#171c23]/50">
                 <div class="flex justify-between"><span class="font-bold text-sm">Solar Flare ${f.classType || ''}</span><span class="status-badge ${f.classType && f.classType.startsWith('X') ? 'status-error' : 'status-warn'}">${f.classType || 'N/A'}</span></div>
                 <div class="data-font text-xs text-[#c1c7d3] mt-1">Peak: ${f.peakTime || '—'}</div></div>`;
         });
     }
     if (cme && cme.data) {
         cme.data.slice(0, 3).forEach(c => {
-            html += `<div class="p-3 border border-[#414751]/20 rounded bg-[#171c23]/50 mb-2">
+            html += `<div class="p-3 border border-[#414751]/20 rounded bg-[#171c23]/50">
                 <div class="flex justify-between"><span class="font-bold text-sm">CME</span><span class="status-badge status-warn">CME</span></div>
                 <div class="data-font text-xs text-[#c1c7d3] mt-1">${c.startTime || '—'} | ${c.sourceLocation || '—'}</div></div>`;
         });
     }
     if (gst && gst.data) {
         gst.data.slice(0, 2).forEach(g => {
-            html += `<div class="p-3 border border-[#414751]/20 rounded bg-[#171c23]/50 mb-2">
+            html += `<div class="p-3 border border-[#414751]/20 rounded bg-[#171c23]/50">
                 <div class="flex justify-between"><span class="font-bold text-sm">Geomagnetic Storm</span><span class="status-badge status-error">GST</span></div>
                 <div class="data-font text-xs text-[#c1c7d3] mt-1">${g.startTime || '—'}</div></div>`;
         });
@@ -414,23 +427,153 @@ async function loadKpChart() {
     const ctx = canvas.getContext('2d');
     const entries = data.data;
     const w = canvas.width = canvas.offsetWidth;
-    const h = canvas.height = 200;
-    ctx.clearRect(0, 0, w, h);
-    // Draw grid
-    ctx.strokeStyle = 'rgba(164,201,255,0.1)';
-    for (let i = 0; i <= 9; i++) { ctx.beginPath(); ctx.moveTo(0, h - i * h / 9); ctx.lineTo(w, h - i * h / 9); ctx.stroke(); }
-    // Draw line
-    if (entries.length < 2) return;
-    ctx.beginPath();
-    entries.forEach((e, i) => {
-        const x = (i / (entries.length - 1)) * w;
-        const y = h - (e.Kp / 9) * h;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.strokeStyle = '#a4c9ff'; ctx.lineWidth = 2; ctx.stroke();
-    // Fill
-    ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
-    ctx.fillStyle = 'rgba(164,201,255,0.05)'; ctx.fill();
+    const h = canvas.height = canvas.offsetHeight || 200;
+    
+    let activeIndex = -1;
+
+    function drawChart() {
+        ctx.clearRect(0, 0, w, h);
+        
+        // Draw grid
+        ctx.strokeStyle = 'rgba(65, 71, 81, 0.15)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 9; i++) {
+            ctx.beginPath();
+            ctx.moveTo(40, h - 30 - i * (h - 50) / 9);
+            ctx.lineTo(w - 20, h - 30 - i * (h - 50) / 9);
+            ctx.stroke();
+            
+            // Draw Y-axis labels
+            ctx.fillStyle = 'rgba(193, 199, 211, 0.6)';
+            ctx.font = '10px "JetBrains Mono", monospace';
+            ctx.fillText('Kp ' + i, 10, h - 26 - i * (h - 50) / 9);
+        }
+
+        const plotW = w - 60;
+        const plotH = h - 50;
+
+        if (entries.length < 2) return;
+
+        // Draw line with glowing gradient
+        const grad = ctx.createLinearGradient(40, 0, w - 20, 0);
+        grad.addColorStop(0, '#66dd8b');
+        grad.addColorStop(0.5, '#ffb953');
+        grad.addColorStop(1, '#ff5449');
+
+        ctx.beginPath();
+        entries.forEach((e, i) => {
+            const x = 40 + (i / (entries.length - 1)) * plotW;
+            const y = h - 30 - (e.Kp / 9) * plotH;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = 'rgba(164, 201, 255, 0.3)';
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Draw Area Fill
+        ctx.lineTo(40 + plotW, h - 30);
+        ctx.lineTo(40, h - 30);
+        ctx.closePath();
+        const fillGrad = ctx.createLinearGradient(0, 20, 0, h - 30);
+        fillGrad.addColorStop(0, 'rgba(164, 201, 255, 0.15)');
+        fillGrad.addColorStop(1, 'rgba(164, 201, 255, 0.0)');
+        ctx.fillStyle = fillGrad;
+        ctx.fill();
+
+        // X-axis time labels
+        const labelInterval = Math.max(1, Math.floor(entries.length / 4));
+        entries.forEach((e, i) => {
+            if (i % labelInterval === 0 || i === entries.length - 1) {
+                const x = 40 + (i / (entries.length - 1)) * plotW;
+                ctx.fillStyle = 'rgba(193, 199, 211, 0.6)';
+                ctx.font = '9px "JetBrains Mono", monospace';
+                const date = new Date(e.time_tag);
+                const timeStr = date.toLocaleDateString(undefined, {month:'short', day:'numeric'}) + ' ' + date.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit', hour12:false});
+                ctx.fillText(timeStr, x - 25, h - 10);
+            }
+        });
+
+        // Interactive Highlight
+        if (activeIndex !== -1 && activeIndex < entries.length) {
+            const activeEntry = entries[activeIndex];
+            const x = 40 + (activeIndex / (entries.length - 1)) * plotW;
+            const y = h - 30 - (activeEntry.Kp / 9) * plotH;
+
+            ctx.strokeStyle = 'rgba(164, 201, 255, 0.25)';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(x, 20);
+            ctx.lineTo(x, h - 30);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = activeEntry.Kp >= 5 ? '#ff5449' : activeEntry.Kp >= 4 ? '#ffb953' : '#66dd8b';
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tooltip box
+            ctx.fillStyle = 'rgba(27, 32, 39, 0.95)';
+            ctx.strokeStyle = 'rgba(164, 201, 255, 0.4)';
+            ctx.lineWidth = 1;
+            
+            const tooltipW = 140;
+            const tooltipH = 45;
+            let tx = x + 15;
+            let ty = y - 50;
+            
+            if (tx + tooltipW > w) tx = x - tooltipW - 15;
+            if (ty < 10) ty = y + 15;
+
+            ctx.beginPath();
+            ctx.roundRect(tx, ty, tooltipW, tooltipH, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#dee2ec';
+            ctx.font = 'bold 11px "Inter", sans-serif';
+            ctx.fillText('Index: Kp ' + activeEntry.Kp.toFixed(2), tx + 8, ty + 18);
+            
+            ctx.fillStyle = '#a4c9ff';
+            ctx.font = '9px "JetBrains Mono", monospace';
+            const fullDate = new Date(activeEntry.time_tag).toLocaleString();
+            ctx.fillText(fullDate, tx + 8, ty + 34);
+        }
+    }
+
+    canvas.onmousemove = function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const plotW = w - 60;
+        const pct = (mouseX - 40) / plotW;
+        let index = Math.round(pct * (entries.length - 1));
+        if (index < 0) index = 0;
+        if (index >= entries.length) index = entries.length - 1;
+
+        if (index !== activeIndex) {
+            activeIndex = index;
+            drawChart();
+        }
+    };
+
+    canvas.onmouseleave = function() {
+        activeIndex = -1;
+        drawChart();
+    };
+
+    drawChart();
 }
 
 // Override loadWeather to also load DONKI + chart
